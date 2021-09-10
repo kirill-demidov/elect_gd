@@ -1,7 +1,6 @@
-from PyQt5 import QtGui, QtCore, QtWidgets
+from PyQt5 import QtWidgets
 from PyQt5.QtGui import *
-from PyQt5.QtWidgets import QLabel, QWidget, QFileDialog, QFontDialog, QInputDialog,QCheckBox, QApplication,\
-    QSpinBox
+from PyQt5.QtWidgets import QLabel, QWidget, QFileDialog, QFontDialog, QCheckBox, QApplication, QSpinBox
 import os
 
 import commondata
@@ -11,7 +10,8 @@ class TModeler(QWidget):
     formaparent = None
     select_directory = ''
     select_file = ''
-    def __init__(self, parent):
+
+    def __init__(self):
         super(QWidget, self).__init__()
 # контейнер для кнопок
         layoutbutton = QtWidgets.QHBoxLayout()
@@ -115,7 +115,6 @@ class TModeler(QWidget):
             pass
         self.show_parameters()
 
-
 # изменить шрифт
     def font_click(self):
         font, ok = QFontDialog.getFont(self.font())
@@ -143,119 +142,119 @@ class TModeler(QWidget):
             self.show_parameters()
 
     def show_parameters(self):
-            try:
-                self.root_model.setRowCount(0)  # сбросить таблицу
-                self.root_model.setColumnCount(0)  # сбросить все колонки
-                # колонки
-                stname = []
-                stname.append('№№')
-                stname.append('Партия')
-                stname.append('% избир.')
-                stname.append('Кол-во избир.')
-                stname.append('Кол-во мандатов')
-                stname.append('Дробная часть')
-                stname.append('Добавка')
-                stname.append('Итог мандатов')
-                self.root_model.setHorizontalHeaderLabels(stname)
-                values = commondata.texts[1]
-                summa = 0
-                summa_count = 0
-                # рассчитать квоту Хэйра
-                for key in values.keys():
-                    val = values[key]
-                    if val >= self.count_min.value():
-                        summa = summa + val
-                        summa_count = summa_count + val * self.count.value() / 100
-                kvota = summa * self.count.value() /100 / self.count_mandat.value()
+        try:
+            self.root_model.setRowCount(0)  # сбросить таблицу
+            self.root_model.setColumnCount(0)  # сбросить все колонки
+            # колонки
+            stname = []
+            stname.append('№№')
+            stname.append('Партия')
+            stname.append('% избир.')
+            stname.append('Кол-во избир.')
+            stname.append('Кол-во мандатов')
+            stname.append('Дробная часть')
+            stname.append('Добавка')
+            stname.append('Итог мандатов')
+            self.root_model.setHorizontalHeaderLabels(stname)
+            values = commondata.texts[1]
+            summa = 0
+            summa_count = 0
+            # рассчитать квоту Хэйра
+            for key in values.keys():
+                val = values[key]
+                if val >= self.count_min.value():
+                    summa = summa + val
+                    summa_count = summa_count + val * self.count.value() / 100
+            kvota = summa * self.count.value() / 100 / self.count_mandat.value()
 
-                # заполняем таблицу
-                dif = dict()
-                n = 1
-                count_mandat = 0
-                for key in values.keys():
-                    val = values[key]  # процент избирателей
-                    row = [QStandardItem(str(n)), QStandardItem(key), QStandardItem(str(val))]
-                    if val >= self.count_min.value():
-                        row.append(QStandardItem(str(int(val * self.count.value() / 100))))
-                        val1 = val * self.count.value() / 100 / kvota
-                        row.append(QStandardItem("%.3f" % val1))
-                        count_mandat = count_mandat + int(val1)
-                        row.append(QStandardItem("%.3f" % (val1 - int(val1))))
-                        dif[str(n)] = val1 - int(val1) # разности с номерами строк по ключам
-                        row.append(QStandardItem(''))  # добавка
-                        row.append(QStandardItem(str(int(val1))))  # итоговый мандат
-                    else:
-                        row.append(QStandardItem(''))
-                        row.append(QStandardItem(''))
-                        row.append(QStandardItem(''))
-                        row.append(QStandardItem(''))  # добавка
-                        row.append(QStandardItem(''))  # итоговый мандат
-                    # только чтение
-                    commondata.row_only_read(row, [2])
-                    self.root_model.appendRow(row)
-                    n += 1
-                # суммарная строка
-                row = [QStandardItem('==='), QStandardItem('суммарно'),
-                       QStandardItem(str(summa)), QStandardItem(str(summa_count)),
-                       QStandardItem(str(count_mandat))]
+            # заполняем таблицу
+            dif = dict()
+            n = 1
+            count_mandat = 0
+            for key in values.keys():
+                val = values[key]  # процент избирателей
+                row = [QStandardItem(str(n)), QStandardItem(key), QStandardItem(str(val))]
+                if val >= self.count_min.value():
+                    row.append(QStandardItem(str(int(val * self.count.value() / 100))))
+                    val1 = val * self.count.value() / 100 / kvota
+                    row.append(QStandardItem("%.3f" % val1))
+                    count_mandat = count_mandat + int(val1)
+                    row.append(QStandardItem("%.3f" % (val1 - int(val1))))
+                    dif[str(n)] = val1 - int(val1)  # разности с номерами строк по ключам
+                    row.append(QStandardItem(''))  # добавка
+                    row.append(QStandardItem(str(int(val1))))  # итоговый мандат
+                else:
+                    row.append(QStandardItem(''))
+                    row.append(QStandardItem(''))
+                    row.append(QStandardItem(''))
+                    row.append(QStandardItem(''))  # добавка
+                    row.append(QStandardItem(''))  # итоговый мандат
+                # только чтение
+                commondata.row_only_read(row, [2])
                 self.root_model.appendRow(row)
-                # ширина колонок по содержимому
-                for j in range(0, self.root_model.columnCount()):
-                    self.table.resizeColumnToContents(j)
-                self.kvota.setText(
-                    'Квота Хэйра = %.6f' % + kvota +
-                    '; сумма % избирателей для квоты=' + str(summa) +
-                    '; кол-во избирателей для квоты=' + str(summa * self.count.value() /100))
-                # сортируем словарь
-                indexes = []
-                while len(dif) > 0:
-                    index = -1
-                    # ищем максимум
-                    val_max = 0
-                    for key in dif.keys():
-                        val = dif[key]
-                        if val > val_max:
-                            val_max = val
-                            index = int(key)
-                    if index == -1:
-                        break
-                    indexes.append(index) # номер строки
-                    dif.pop(str(index))
-                # сформируем добавки
-                for j in range(min(len(indexes), self.count_mandat.value()-count_mandat)):
-                    ind7 = self.root_model.index(indexes[j] - 1, 7)
-                    ind6 = self.root_model.index(indexes[j] - 1, 6)
-                    ind5 = self.root_model.index(indexes[j] - 1, 5)
-                    ind4 = self.root_model.index(indexes[j] - 1, 4)
-                    self.root_model.setData(ind6, '1')
-                    val = float(self.root_model.data(ind4)) - float(self.root_model.data(ind5)) + 1
-                    self.root_model.setData(ind7, str(int(val)))
-                # закончим таблицу
-                val5 = 0
-                val6 = 0
-                val7 = 0
-                for j in range(self.root_model.rowCount() - 1):
-                    ind7 = self.root_model.index(j, 7)
-                    ind6 = self.root_model.index(j, 6)
-                    ind5 = self.root_model.index(j, 5)
-                    st = self.root_model.data(ind5)
-                    if st != '':
-                        val5 += float(st)
-                    st = self.root_model.data(ind6)
-                    if st != '':
-                        val6 += float(st)
-                    st = self.root_model.data(ind7)
-                    if st != '':
-                        val7 += float(st)
-                ind7 = self.root_model.index(self.root_model.rowCount() - 1, 7)
-                ind6 = self.root_model.index(self.root_model.rowCount() - 1, 6)
-                ind5 = self.root_model.index(self.root_model.rowCount() - 1, 5)
-                self.root_model.setData(ind7, str(int(val7)))
-                self.root_model.setData(ind6, str(int(val6)))
-                self.root_model.setData(ind5, "%.3f" % val5)
+                n += 1
+            # суммарная строка
+            row = [QStandardItem('==='), QStandardItem('суммарно'),
+                   QStandardItem(str(summa)), QStandardItem(str(summa_count)),
+                   QStandardItem(str(count_mandat))]
+            self.root_model.appendRow(row)
+            # ширина колонок по содержимому
+            for j in range(0, self.root_model.columnCount()):
+                self.table.resizeColumnToContents(j)
+            self.kvota.setText(
+                'Квота Хэйра = %.6f' % + kvota +
+                '; сумма % избирателей для квоты=' + str(summa) +
+                '; кол-во избирателей для квоты=' + str(summa * self.count.value() / 100))
+            # сортируем словарь
+            indexes = []
+            while len(dif) > 0:
+                index = -1
+                # ищем максимум
+                val_max = 0
+                for key in dif.keys():
+                    val = dif[key]
+                    if val > val_max:
+                        val_max = val
+                        index = int(key)
+                if index == -1:
+                    break
+                indexes.append(index)  # номер строки
+                dif.pop(str(index))
+            # сформируем добавки
+            for j in range(min(len(indexes), self.count_mandat.value()-count_mandat)):
+                ind7 = self.root_model.index(indexes[j] - 1, 7)
+                ind6 = self.root_model.index(indexes[j] - 1, 6)
+                ind5 = self.root_model.index(indexes[j] - 1, 5)
+                ind4 = self.root_model.index(indexes[j] - 1, 4)
+                self.root_model.setData(ind6, '1')
+                val = float(self.root_model.data(ind4)) - float(self.root_model.data(ind5)) + 1
+                self.root_model.setData(ind7, str(int(val)))
+            # закончим таблицу
+            val5 = 0
+            val6 = 0
+            val7 = 0
+            for j in range(self.root_model.rowCount() - 1):
+                ind7 = self.root_model.index(j, 7)
+                ind6 = self.root_model.index(j, 6)
+                ind5 = self.root_model.index(j, 5)
+                st = self.root_model.data(ind5)
+                if st != '':
+                    val5 += float(st)
+                st = self.root_model.data(ind6)
+                if st != '':
+                    val6 += float(st)
+                st = self.root_model.data(ind7)
+                if st != '':
+                    val7 += float(st)
+            ind7 = self.root_model.index(self.root_model.rowCount() - 1, 7)
+            ind6 = self.root_model.index(self.root_model.rowCount() - 1, 6)
+            ind5 = self.root_model.index(self.root_model.rowCount() - 1, 5)
+            self.root_model.setData(ind7, str(int(val7)))
+            self.root_model.setData(ind6, str(int(val6)))
+            self.root_model.setData(ind5, "%.3f" % val5)
 
-            except:
-                pass
+        except:
+            pass
 
     def on_change(self, item):
         for j in range(self.root_model.rowCount()):
