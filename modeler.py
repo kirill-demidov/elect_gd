@@ -107,9 +107,12 @@ class TModeler(QWidget):
         if self.select_file == '':
             self.select_file = 'parties.json'
         commondata.load_texts(self.select_file)
-        self.count.setValue(commondata.texts[0]["Общее кол-во избирателей"])
-        self.count_mandat.setValue(commondata.texts[0]["Количество мандатов"])
-        self.count_min.setValue(commondata.texts[0]["Электоральный барьер"])
+        try:
+            self.count.setValue(commondata.texts[0]["Общее кол-во избирателей"])
+            self.count_mandat.setValue(commondata.texts[0]["Количество мандатов"])
+            self.count_min.setValue(commondata.texts[0]["Электоральный барьер"])
+        except:
+            pass
         self.show_parameters()
 
 
