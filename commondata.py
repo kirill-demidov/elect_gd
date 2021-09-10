@@ -16,7 +16,7 @@ def load_texts(filename):
             texts = f.read()
             texts = json.loads(texts.replace('\n', ' '))
     except Exception as err:
-        make_question(None, filename, 'Ошибка чтения файла', texts, onlyok=True)
+        make_question(None, filename + f'\n {err}' , 'Ошибка чтения файла', texts, onlyok=True)
 
 def row_only_read(row, mas_change):
     for jj in range(0, len(row)):
