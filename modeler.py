@@ -28,7 +28,7 @@ class TModeler(QWidget):
         # layoutbutton.addWidget(self.with_detail)
         layoutbutton.addWidget(QLabel(''), 2)
         self.close_button = QtWidgets.QPushButton('Закончить')
-        self.close_button.clicked.connect(QApplication.quit)
+        self.close_button.clicked.connect(self.close_click)
         layoutbutton.addWidget(self.close_button)
 # Параметры
         panel_param = QtWidgets.QVBoxLayout()
@@ -265,3 +265,7 @@ class TModeler(QWidget):
                 commondata.texts[1][self.root_model.data(ind_name)] = float(self.root_model.data(ind_val))
                 self.show_parameters()
                 break
+
+    def close_click(self):
+        self.formaparent.close()
+        QApplication.quit()
