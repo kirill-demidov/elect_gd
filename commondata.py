@@ -1,11 +1,21 @@
 from PyQt5 import QtCore
-from PyQt5.QtWidgets import (QMessageBox)
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (QMessageBox, QApplication)
+from PyQt5.QtGui import QStandardItemModel
+import xlwt
 import json
+import os
 
 settings: QtCore.QSettings
 width_form = 1200
 height_form = 800
 texts = None
+iconCreate = None
+iconDelete = None
+iconSave = None
+iconLoadFile = None
+iconFont = None
+iconExcel = None
 
 
 def load_texts(filename):
@@ -42,3 +52,36 @@ def make_question(self, txt, informative_text=None, detailed_text=None, only_ok=
         message_box.setDefaultButton(QMessageBox.No)
     result = message_box.exec()
     return result == QMessageBox.Yes
+
+
+def export_to_excel_xls(root_model: QStandardItemModel, file_name='test'):
+    try:
+        QApplication.setOverrideCursor(Qt.BusyCursor)  # курсор ожидания
+        book = xlwt.Workbook()
+        sheet1 = book.add_sheet("Sheet1")
+        row = sheet1.row(0)
+        for i in range(root_model.columnCount()):
+            if i == 2:
+                continue
+            row.write(i, root_model.horizontalHeaderItem(i).text())
+        for arow in range(root_model.rowCount()):
+            row = sheet1.row(1 + arow)
+            for i in range(root_model.columnCount()):
+                if i == 2:
+                    continue
+                ind = root_model.index(arow, i)
+                value = root_model.data(ind)
+                row.write(i, value)
+        path = 'file_excel'
+        try:
+            os.mkdir(path)
+        except:
+            pass
+        book.save(path + '/' + file_name+'.xls')
+        QApplication.restoreOverrideCursor()  # вернуть нормальный курсор
+        make_question(
+            None, 'Таблица экспортирована в файл ' + os.getcwd() + '/' + path + '/' + file_name+'.xls',
+            only_ok=True)
+    except Exception as err:
+        make_question(None, f'{err}', 'Ошибка экспорта', only_ok=True)
+        QApplication.restoreOverrideCursor()  # вернуть нормальный курсор
