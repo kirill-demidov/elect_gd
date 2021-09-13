@@ -1,8 +1,10 @@
+import json
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import QLabel, QWidget, QFileDialog, QFontDialog, QCheckBox, QApplication, QSpinBox, \
-    QDoubleSpinBox
+    QDoubleSpinBox, QMessageBox
 import os
+from matplotlib import pyplot as plt
 
 import commondata
 
@@ -11,7 +13,14 @@ class TModeler(QWidget):
     formaparent = None
     select_directory = ''
     select_file = ''
+    select_file_excel = ''
     exist = False
+    fig = None
+    cid = None
+    xf = 50
+    yf = 100
+    dxf = 600
+    dyf = 500
 
     def __init__(self):
         super(QWidget, self).__init__()
@@ -46,9 +55,11 @@ class TModeler(QWidget):
         self.count.setMinimum(1)
         self.count.valueChanged.connect(self.changed)
         param.addWidget(self.count)
+        panel_param.addLayout(param)
         param.addWidget(QLabel(''), 10)
-        panel_param.addLayout(param)
-        panel_param.addLayout(param)
+        self.diagramma_button = QtWidgets.QPushButton('Диаграмма')
+        self.diagramma_button.clicked.connect(self.show_image)
+        param.addWidget(self.diagramma_button)
 
         param = QtWidgets.QHBoxLayout()
         param.addWidget(QLabel('Количество мандатов='))
@@ -106,7 +117,8 @@ class TModeler(QWidget):
         self.delete_row.clicked.connect(self.delete_row_click)
         self.delete_row.setEnabled(False)
         panel_control.addWidget(self.delete_row, 2)
-        self.save_file = QtWidgets.QPushButton(commondata.iconSave, 'Сохранить')
+        self.save_file = QtWidgets.QPushButton(commondata.iconSave, 'Сохранить (JSON)')
+        self.save_file.clicked.connect(self.save_file_click)
         self.save_file.setEnabled(False)
         panel_control.addWidget(self.save_file)
 
@@ -117,6 +129,8 @@ class TModeler(QWidget):
         self.barier_count = QLabel('')
         statusbar.addWidget(self.barier_count)
         statusbar.addWidget(QLabel(''), 10)
+        self.file_json = QLabel('')
+        statusbar.addWidget(self.file_json)
 
 # все соберем вместе
         layout = QtWidgets.QVBoxLayout()
@@ -135,7 +149,19 @@ class TModeler(QWidget):
             self.select_file = commondata.settings.value("data_file", None)
         if self.select_file == '':
             self.select_file = 'parties.json'
-        commondata.load_texts(self.select_file)
+        if commondata.settings.contains("file_excel"):
+            self.select_file_excel = commondata.settings.value("file_excel", '')
+        if commondata.settings.contains('_xf'):
+            self.xf = int(commondata.settings.value('_xf'))
+        if commondata.settings.contains('_yf'):
+            self.yf = int(commondata.settings.value('_yf'))
+        if commondata.settings.contains('_dxf'):
+            self.dxf = int(commondata.settings.value('_dxf'))
+        if commondata.settings.contains('_dyf'):
+            self.dyf = int(commondata.settings.value('_dyf'))
+
+        if commondata.load_texts(self.select_file):
+            self.file_json.setText(self.select_file)
         try:
             self.count.setValue(commondata.texts[0]["Общее кол-во избирателей"])
             self.count_mandat.setValue(commondata.texts[0]["Количество мандатов"])
@@ -152,7 +178,7 @@ class TModeler(QWidget):
 
 # загрузить файл с данными
     def load_click(self):
-        dialog = QFileDialog(caption="Выбор файла с данными в CSV", filter="csv (*.csv)")
+        dialog = QFileDialog(caption="Выбор файла с данными в JSON", filter="json (*.json)")
         if self.select_directory:
             dialog.setDirectory(self.select_directory)
         if self.select_file:
@@ -161,6 +187,7 @@ class TModeler(QWidget):
         if filename:
             self.select_file = filename
             self.select_directory = os.path.dirname(filename)
+            self.file_json.setText(self.select_file)
             commondata.settings.setValue("data_directory", self.select_directory)
             commondata.settings.setValue("data_file", self.select_file)
             commondata.settings.sync()
@@ -328,6 +355,8 @@ class TModeler(QWidget):
             commondata.make_question(
                 None, f'{err}', 'Ошибка при выводе таблицы', only_ok=True)
         self.exist = True
+        if self.fig is not None:
+            self.show_image()
 
     def on_change(self, item):
         if not self.exist:
@@ -363,8 +392,17 @@ class TModeler(QWidget):
         if self.exist:
             self.calc_button.setEnabled(True)
             self.save_file.setEnabled(True)
+            commondata.texts[0]["Общее кол-во избирателей"] = self.count.value()
+            commondata.texts[0]["Количество мандатов"] = self.count_mandat.value()
+            commondata.texts[0]["Электоральный барьер"] = self.count_barier.value()
 
     def close_click(self):
+        self.close_fig()
+        commondata.settings.setValue('_xf', self.xf)
+        commondata.settings.setValue('_yf', self.yf)
+        commondata.settings.setValue('_dxf', self.dxf)
+        commondata.settings.setValue('_dyf', self.dyf)
+        commondata.settings.sync()
         self.formaparent.close()
         QApplication.quit()
 
@@ -390,4 +428,115 @@ class TModeler(QWidget):
         self.show_data()
 
     def excel_click(self):
-        commondata.export_to_excel_xls(self.root_model, 'Выборы')
+        path = commondata.export_to_excel_xls(self.root_model, self.select_file_excel)
+        if path:
+            self.select_file_excel = path
+            commondata.settings.setValue("file_excel", path)
+            commondata.settings.sync()
+
+    def save_file_click(self):
+        path = commondata.get_filename_for_write(self.select_file)
+        if path:
+            path = os.path.splitext(path)[0] + '.json'
+            self.select_file = path
+            self.select_directory = os.path.dirname(path)
+            commondata.settings.setValue("data_directory", self.select_directory)
+            commondata.settings.setValue("data_file", self.select_file)
+            commondata.settings.sync()
+            try:
+                f = open(path, 'wt', encoding='utf-8')  # только запись и текстовый файл
+                with f:
+                    txt = json.dumps(commondata.texts, indent=4, ensure_ascii=False)
+                    f.write(txt)
+                    self.save_file.setEnabled(False)
+            except Exception as err:
+                commondata.make_question(None, path + f'\n {err}', 'Ошибка записи в файл', txt, only_ok=True)
+
+    def fig_draw(self, event):
+        self.fig.tight_layout()
+
+    def figure_close(self, event):
+        if self.exist:
+            self.exist = False
+            self.fig = self.close_fig()
+            self.exist = True
+
+    def close_fig(self):
+        try:
+            if self.fig != None:
+                mngr = plt.get_current_fig_manager()
+                geom = mngr.window.geometry()
+                self.xf, self.yf, self.dxf, self.dyf = geom.getRect()  # расположение фигуры
+                self.fig.canvas.mpl_disconnect(self.cid)
+                plt.close(self.fig)  # все закрывается
+                self.fig = None
+        except:
+            pass
+
+    def show_image(self):
+        try:
+            if self.fig != None:
+                self.close_fig()
+            self.fig = plt.figure(
+                    frameon=True, num=self.select_file, clear=True)
+            self.cid = self.fig.canvas.mpl_connect('close_event', self.figure_close)
+            self.fig.canvas.mpl_connect('resize_event', self.fig_draw)
+            try:
+                mngr = plt.get_current_fig_manager()
+                mngr.window.setGeometry(self.xf, self.yf, self.dxf, self.dyf)
+            except:
+                pass
+
+            x = []
+            y = []
+            y1 = []
+            for j in range(self.root_model.rowCount() - 1):
+                ind1 = self.root_model.index(j, 1)  # название партий
+                ind6 = self.root_model.index(j, 6)  # мандаты по Хэйру
+                ind3 = self.root_model.index(j, 3)  # процент избирателей
+                x.append(self.root_model.data(ind1))
+                y1.append(float(self.root_model.data(ind3)))
+                val = self.root_model.data(ind6)
+                if val is None or val == '':
+                    val = 0
+                else:
+                    val = int(val)
+                y.append(val)
+            # отсортируем по возрастанию
+            for i in range(len(x)):
+                minimum = i
+                for j in range(i +1, len(x)):
+                    if y[j] < y[minimum]:
+                        minimum = j
+                y[minimum], y[i] = y[i], y[minimum]
+                x[minimum], x[i] = x[i], x[minimum]
+                y1[minimum], y1[i] = y1[i], y1[minimum]
+
+            ax = plt.subplot(2, 1, 1)
+            ax.set_title('Полученные мандаты')
+            ax.set_ylabel('------------ Партии ------------')
+            ax.set_xlabel('Мандаты')
+            ax.set_xlim(xmin=0, xmax=self.count_mandat.value())
+            for i, v in enumerate(y):
+                if v != 0:
+                    ax.text(v + 1, i - 0.2, str(v), color='blue')
+            ax.barh(x, y, height = 0.75)
+            # ax.barh(x, y1)
+            ax.grid(True)
+            ax.legend(loc='best', frameon=False)
+
+            ax = plt.subplot(2, 1, 2)
+            ax.set_title('Проценты избирателей')
+            ax.set_ylabel('------------ Партии ------------')
+            ax.set_xlabel('% избирателей')
+            ax.set_xlim(xmin=0, xmax=100)
+            for i, v in enumerate(y1):
+                if v != 0:
+                    ax.text(v + 1, i - 0.1, str(v), color='red')
+            ax.barh(x, y1, height = 0.75, color='r')
+            # ax.barh(x, y1)
+            ax.grid(True)
+            ax.legend(loc='best', frameon=False)
+            plt.show()
+        except Exception as e:
+            QMessageBox.information(None, 'Ошибки', f"{e}", buttons=QtWidgets.QMessageBox.Close)
