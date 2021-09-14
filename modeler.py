@@ -478,7 +478,7 @@ class TModeler(QWidget):
             if self.fig != None:
                 self.close_fig()
             self.fig = plt.figure(
-                    frameon=True, num=self.select_file, clear=True)
+                    frameon=True, num='Информация из файла ' + self.select_file, clear=True)
             self.cid = self.fig.canvas.mpl_connect('close_event', self.figure_close)
             self.fig.canvas.mpl_connect('resize_event', self.fig_draw)
             try:
@@ -515,14 +515,13 @@ class TModeler(QWidget):
             ax = plt.subplot(2, 1, 1)
             ax.set_title('Полученные мандаты')
             ax.set_ylabel('------------ Партии ------------')
-            ax.set_xlabel('Мандаты')
+            ax.set_xlabel('Количество полученных мандатов')
             ax.set_xlim(xmin=0, xmax=self.count_mandat.value())
             for i, v in enumerate(y):
                 if v != 0:
                     ax.text(v + 1, i - 0.2, str(v), color='blue')
             ax.barh(x, y, height = 0.75)
-            # ax.barh(x, y1)
-            ax.grid(True)
+            # ax.grid(True)
             ax.legend(loc='best', frameon=False)
 
             ax = plt.subplot(2, 1, 2)
@@ -534,8 +533,7 @@ class TModeler(QWidget):
                 if v != 0:
                     ax.text(v + 1, i - 0.1, str(v), color='red')
             ax.barh(x, y1, height = 0.75, color='r')
-            # ax.barh(x, y1)
-            ax.grid(True)
+            # ax.grid(True)
             ax.legend(loc='best', frameon=False)
             plt.show()
         except Exception as e:
