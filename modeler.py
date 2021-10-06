@@ -321,7 +321,7 @@ class TModeler(QWidget):
             dif.pop(str(index))
         return indexes
 
-    def show_data(self):
+    def show_data(self, show_image=True):
         self.exist = False
         try:
             self.init_table()
@@ -459,7 +459,7 @@ class TModeler(QWidget):
             commondata.make_question(
                 None, f'{err}', 'Ошибка при выводе таблицы', only_ok=True)
         self.exist = True
-        if self.fig is not None:
+        if show_image and self.fig is not None:
             self.show_image()
 
     def on_change(self, item):
@@ -535,7 +535,7 @@ class TModeler(QWidget):
             self.delete_row.setEnabled(row != self.root_model.rowCount() - 1)
 
     def detail_changed(self):
-        self.show_data()
+        self.show_data(False)
 
     def excel_click(self):
         path = commondata.export_to_excel_xls(self.root_model, self.select_file_excel)
