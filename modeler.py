@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QLabel, QWidget, QFileDialog, QFontDialog, QCheckBox
     QDoubleSpinBox, QMessageBox
 import os
 from matplotlib import pyplot as plt
+import pandas as pan
 
 import commondata
 
@@ -21,6 +22,12 @@ class TModeler(QWidget):
     yf = 100
     dxf = 600
     dyf = 500
+    fig_e = None
+    cid_e = None
+    xf_e = 50
+    yf_e = 100
+    dxf_e = 600
+    dyf_e = 500
 
     def __init__(self):
         super(QWidget, self).__init__()
@@ -51,24 +58,27 @@ class TModeler(QWidget):
         param = QtWidgets.QHBoxLayout()
         param.addWidget(QLabel('Общее кол-во избирателей='))
         self.count = QSpinBox()
-        self.count.setMaximum(100000000)
+        self.count.setMaximum(1000000000)
         self.count.setMinimum(1)
         self.count.valueChanged.connect(self.changed)
         param.addWidget(self.count)
-        panel_param.addLayout(param)
         param.addWidget(QLabel(''), 10)
-        self.diagramma_button = QtWidgets.QPushButton('Диаграмма')
-        self.diagramma_button.clicked.connect(self.show_image)
-        param.addWidget(self.diagramma_button)
+        diagramma = QtWidgets.QPushButton('Избиратели')
+        diagramma.clicked.connect(self.show_image_e)
+        param.addWidget(diagramma)
+        panel_param.addLayout(param)
 
         param = QtWidgets.QHBoxLayout()
         param.addWidget(QLabel('Количество мандатов='))
         self.count_mandat = QSpinBox()
-        self.count_mandat.setMaximum(1000)
+        self.count_mandat.setMaximum(10000)
         self.count_mandat.setMinimum(1)
         self.count_mandat.valueChanged.connect(self.changed)
         param.addWidget(self.count_mandat)
         param.addWidget(QLabel(''), 10)
+        self.diagramma_button = QtWidgets.QPushButton('Мандаты')
+        self.diagramma_button.clicked.connect(self.show_image)
+        param.addWidget(self.diagramma_button)
         panel_param.addLayout(param)
 
         param = QtWidgets.QHBoxLayout()
@@ -84,6 +94,12 @@ class TModeler(QWidget):
         param = QtWidgets.QHBoxLayout()
         self.kvota = QLabel('Квота Хэйра')
         param.addWidget(self.kvota)
+        param.addWidget(QLabel(''), 10)
+        panel_param.addLayout(param)
+
+        param = QtWidgets.QHBoxLayout()
+        self.kvota_drup = QLabel('Квота Друпа')
+        param.addWidget(self.kvota_drup)
         param.addWidget(QLabel(''), 10)
         panel_param.addLayout(param)
 
@@ -159,6 +175,14 @@ class TModeler(QWidget):
             self.dxf = int(commondata.settings.value('_dxf'))
         if commondata.settings.contains('_dyf'):
             self.dyf = int(commondata.settings.value('_dyf'))
+        if commondata.settings.contains('_xf_e'):
+            self.xf_e = int(commondata.settings.value('_xf_e'))
+        if commondata.settings.contains('_yf_e'):
+            self.yf_e = int(commondata.settings.value('_yf_e'))
+        if commondata.settings.contains('_dxf_e'):
+            self.dxf_e = int(commondata.settings.value('_dxf_e'))
+        if commondata.settings.contains('_dyf_e'):
+            self.dyf_e = int(commondata.settings.value('_dyf_e'))
 
         if commondata.load_texts(self.select_file):
             self.file_json.setText(self.select_file)
@@ -218,12 +242,20 @@ class TModeler(QWidget):
         """
         return summa / 100 * self.count.value() / self.count_mandat.value()
 
+    def kvota_drupa(self, summa):
+        """
+        расчет квоты Друпа
+        :param summa: суммарное количество процентов голосов партий, превысивших электоральный барьер
+        :return:
+        """
+        return summa / 100 * self.count.value() / (self.count_mandat.value() + 1) + 1
+
     def show_last_row(self, index_column, is_float=False):
         val = 0
         for j in range(self.root_model.rowCount() - 1):
             ind = self.root_model.index(j, index_column)
             st = self.root_model.data(ind)
-            if st != '':
+            if st is not None and st != '':
                 val += float(st)
         ind = self.root_model.index(self.root_model.rowCount() - 1, index_column)
         if is_float:
@@ -233,8 +265,8 @@ class TModeler(QWidget):
         self.root_model.setData(ind, QtCore.Qt.AlignRight, QtCore.Qt.TextAlignmentRole)
 
     def set_align(self, arow):
-        for index_column in range(10):
-            if index_column != 1 and index_column != 2 and index_column != 9:
+        for index_column in range(self.root_model.columnCount() -1):
+            if index_column != 1 and index_column != 2:
                 ind = self.root_model.index(arow, index_column)
                 self.root_model.setData(ind, QtCore.Qt.AlignRight, QtCore.Qt.TextAlignmentRole)
 
@@ -248,15 +280,29 @@ class TModeler(QWidget):
         stname.append('Партия начальная')  # 2
         stname.append('%\n избир.')  # 3
         stname.append('Кол-во\n избирателей')  # 4
-        stname.append('Кол-во\n мандатов')  # 5
+
+        stname.append('Кол-во\n по Хэйру')  # 5
         stname.append('Мандатов\n по Хэйру')  # 6
-        stname.append('Дробная\n часть')  # 7
-        stname.append('Добавка')  # 8
+        stname.append('Дробная\n часть \nпо Хэйру')  # 7
+        stname.append('Добавка \nпо \nХэйру')  # 8
+
+        stname.append('Кол-во\n по Друпу')  # 9
+        stname.append('Мандатов\n по Друпу')  # 10
+        stname.append('Дробная\n часть \nпо Друпу')  # 11
+        stname.append('Добавка \nпо \nДрупу')  # 12
+
+        stname.append('Мандатов\n по Сент-Лагю')  # 13
+        stname.append("Мандатов\n по Д'Ондту")  # 13
+        stname.append("Мандатов\n по Империали")  # 14
         stname.append(' ')
         self.root_model.setHorizontalHeaderLabels(stname)
         self.table.setColumnHidden(2, True)
+        self.table.setColumnHidden(5, not self.with_detail.isChecked())
         self.table.setColumnHidden(7, not self.with_detail.isChecked())
         self.table.setColumnHidden(8, not self.with_detail.isChecked())
+        self.table.setColumnHidden(11, not self.with_detail.isChecked())
+        self.table.setColumnHidden(9, not self.with_detail.isChecked())
+        self.table.setColumnHidden(12, not self.with_detail.isChecked())
 
     def sort_indexes(self, dif):
         indexes = []
@@ -279,12 +325,19 @@ class TModeler(QWidget):
         self.exist = False
         try:
             self.init_table()
+            mandats_sl = self.method_sent_lagu(2, 1)
+            mandats_on = self.method_sent_lagu(1, 1)
+            mandats_im = self.method_sent_lagu(1, 2)
             values = commondata.texts[1]
             summa = self.calc_summa_barier()
             # рассчитать квоту Хэйра
             kvota_haira = self.kvota_haira(summa)
+            kvota_drupa = self.kvota_drupa(summa)
+            self.kvota_drup.setText('Квота Друпа = %.6f' % kvota_drupa)
             # заполняем таблицу
             dif = dict()
+            dif_d = dict()
+            val_d = 0
             n = 1
             count_mandat = 0
             count_barier = 0
@@ -302,6 +355,12 @@ class TModeler(QWidget):
                     count_mandat = count_mandat + int(val1)
                     count_barier += 1
                     dif[str(n)] = val1 - int(val1)  # разности с номерами строк по ключам
+                    val1 = val / 100 * self.count.value() / kvota_drupa
+                    row.append(QStandardItem("%.3f" % val1))  # дробное количество мандатов по Друпу
+                    row.append(QStandardItem(str(int(val1))))  # итоговый мандат
+                    row.append(QStandardItem("%.3f" % (val1 - int(val1))))  # дробная часть мандатов
+                    val_d += int(val1)  # целое количество мандатов по Друпу
+                    dif_d[str(n)] = val1 - int(val1)  # разности с номерами строк по ключам
                 else:
                     if val is not None:
                         row.append(QStandardItem(str(val)))
@@ -312,6 +371,7 @@ class TModeler(QWidget):
                     row.append(QStandardItem(''))
                     row.append(QStandardItem(''))  # добавка
                     row.append(QStandardItem(''))  # итоговый мандат
+                row.append(QStandardItem(''))  # для Сент-Лагю
                 row.append(QStandardItem(''))  # невидимая колонка
                 # только чтение
                 commondata.row_only_read(row, [1, 3])  # 1 и 3 колонка корректируются
@@ -348,6 +408,50 @@ class TModeler(QWidget):
             self.show_last_row(8, False)
             self.show_last_row(7, True)
             self.show_last_row(6, False)
+
+            # сортируем словарь
+            indexes = self.sort_indexes(dif_d)
+            # сформируем добавки
+            while val_d < self.count_mandat.value():
+                for j in range(min(len(indexes), self.count_mandat.value())):
+                    if val_d >= self.count_mandat.value():
+                        break
+                    ind7 = self.root_model.index(indexes[j] - 1, 11)  # дробная часть мандатов
+                    ind6 = self.root_model.index(indexes[j] - 1, 10)  # мандаты по Друпу
+                    ind5 = self.root_model.index(indexes[j] - 1, 9)  # количество смандатов с дробной частью
+                    ind8 = self.root_model.index(indexes[j] - 1, 12)  # добавки
+                    if self.root_model.data(ind8) is not None and self.root_model.data(ind8) != '':
+                        v = int(self.root_model.data(ind8))
+                    else:
+                        v = 0
+                    v += 1
+                    self.root_model.setData(ind8, str(v))
+                    val = float(self.root_model.data(ind5)) - float(self.root_model.data(ind7)) + v
+                    self.root_model.setData(ind6, str(int(val)))
+                    val_d += 1
+            for arow in range(self.root_model.rowCount() - 1):
+                val = mandats_sl[arow]
+                if val != 0:
+                    ind13 = self.root_model.index(arow, 13)
+                    self.root_model.setData(ind13, str(int(val)))
+                val = mandats_on[arow]
+                if val != 0:
+                    ind14 = self.root_model.index(arow, 14)
+                    self.root_model.setData(ind14, str(int(val)))
+                val = mandats_im[arow]
+                if val != 0:
+                    ind15 = self.root_model.index(arow, 15)
+                    self.root_model.setData(ind15, str(int(val)))
+
+            # закончим таблицу последней строкой
+            self.show_last_row(11, True)
+            self.show_last_row(10, False)
+            self.show_last_row(9, True)
+            self.show_last_row(12, False)
+            self.show_last_row(13, False)
+            self.show_last_row(14, False)
+            self.show_last_row(15, False)
+
             self.row_count.setText('всего партий=' + str(len(values)) + ';')
             self.barier_count.setText('прошедших барьер=' + str(count_barier) + ';')
             self.calc_button.setEnabled(False)
@@ -398,10 +502,16 @@ class TModeler(QWidget):
 
     def close_click(self):
         self.close_fig()
+        self.close_fig_e()
         commondata.settings.setValue('_xf', self.xf)
         commondata.settings.setValue('_yf', self.yf)
         commondata.settings.setValue('_dxf', self.dxf)
         commondata.settings.setValue('_dyf', self.dyf)
+
+        commondata.settings.setValue('_xf_e', self.xf_e)
+        commondata.settings.setValue('_yf_e', self.yf_e)
+        commondata.settings.setValue('_dxf_e', self.dxf_e)
+        commondata.settings.setValue('_dyf_e', self.dyf_e)
         commondata.settings.sync()
         self.formaparent.close()
         QApplication.quit()
@@ -455,10 +565,19 @@ class TModeler(QWidget):
     def fig_draw(self, event):
         self.fig.tight_layout()
 
+    def fig_draw_e(self, event):
+        self.fig_e.tight_layout()
+
     def figure_close(self, event):
         if self.exist:
             self.exist = False
             self.fig = self.close_fig()
+            self.exist = True
+
+    def figure_close_e(self, event):
+        if self.exist:
+            self.exist = False
+            self.fig_e = self.close_fig_e()
             self.exist = True
 
     def close_fig(self):
@@ -472,6 +591,63 @@ class TModeler(QWidget):
                 self.fig = None
         except:
             pass
+        return self.fig
+
+    def close_fig_e(self):
+        try:
+            if self.fig_e != None:
+                mngr = plt.get_current_fig_manager()
+                geom = mngr.window.geometry()
+                self.xf_e, self.yf_e, self.dxf_e, self.dyf_e = geom.getRect()  # расположение фигуры
+                self.fig_e.canvas.mpl_disconnect(self.cid_e)
+                plt.close(self.fig_e)  # все закрывается
+                self.fig_e = None
+        except:
+            pass
+        return self.fig_e
+
+    def show_image_e(self):
+        try:
+            if self.fig_e != None:
+                self.close_fig_e()
+            self.fig_e = plt.figure(
+                    frameon=True, num='Избиратели (из файла ' + self.select_file + ')', clear=True)
+            self.cid_e = self.fig_e.canvas.mpl_connect('close_event', self.figure_close_e)
+            self.fig_e.canvas.mpl_connect('resize_event', self.fig_draw_e)
+            try:
+                mngr = plt.get_current_fig_manager()
+                mngr.window.setGeometry(self.xf_e, self.yf_e, self.dxf_e, self.dyf_e)
+            except:
+                pass
+
+            x = []
+            y1 = []
+            for j in range(self.root_model.rowCount() - 1):
+                ind1 = self.root_model.index(j, 1)  # название партий
+                ind3 = self.root_model.index(j, 3)  # процент избирателей
+                x.append(self.root_model.data(ind1))
+                y1.append(float(self.root_model.data(ind3)))
+            # отсортируем по возрастанию
+            for i in range(len(x)):
+                minimum = i
+                for j in range(i +1, len(x)):
+                    if y1[j] < y1[minimum]:
+                        minimum = j
+                x[minimum], x[i] = x[i], x[minimum]
+                y1[minimum], y1[i] = y1[i], y1[minimum]
+
+            ax = plt.subplot(1, 1, 1)
+            ax.set_title('Проценты избирателей')
+            ax.set_ylabel('------------ Партии ------------')
+            ax.set_xlabel('% избирателей')
+            ax.set_xlim(xmin=0, xmax=100)
+            for i, v in enumerate(y1):
+                if v != 0:
+                    ax.text(v + 1, i - 0.1, str(v), color='red')
+            ax.barh(x, y1, height = 0.75, color='r', alpha=0.5)
+            plt.show()
+        except Exception as e:
+            QMessageBox.information(None, 'Ошибки', f"{e}", buttons=QtWidgets.QMessageBox.Close)
 
     def show_image(self):
         try:
@@ -489,19 +665,48 @@ class TModeler(QWidget):
 
             x = []
             y = []
-            y1 = []
+            y_d = []
+            y_cl = []
+            y_o = []
+            y_i = []
             for j in range(self.root_model.rowCount() - 1):
                 ind1 = self.root_model.index(j, 1)  # название партий
                 ind6 = self.root_model.index(j, 6)  # мандаты по Хэйру
-                ind3 = self.root_model.index(j, 3)  # процент избирателей
+                ind10 = self.root_model.index(j, 10)  # мандаты по Друпу
+                ind13 = self.root_model.index(j, 13)  # мандаты по Сент-Лагю
+                ind14 = self.root_model.index(j, 14)  # мандаты по Д'Онндту
+                ind15 = self.root_model.index(j, 15)  # мандаты по Империали
                 x.append(self.root_model.data(ind1))
-                y1.append(float(self.root_model.data(ind3)))
                 val = self.root_model.data(ind6)
                 if val is None or val == '':
                     val = 0
                 else:
                     val = int(val)
                 y.append(val)
+                val = self.root_model.data(ind10)
+                if val is None or val == '':
+                    val = 0
+                else:
+                    val = int(val)
+                y_d.append(val)
+                val = self.root_model.data(ind13)
+                if val is None or val == '':
+                    val = 0
+                else:
+                    val = int(val)
+                y_cl.append(val)
+                val = self.root_model.data(ind14)
+                if val is None or val == '':
+                    val = 0
+                else:
+                    val = int(val)
+                y_o.append(val)
+                val = self.root_model.data(ind15)
+                if val is None or val == '':
+                    val = 0
+                else:
+                    val = int(val)
+                y_i.append(val)
             # отсортируем по возрастанию
             for i in range(len(x)):
                 minimum = i
@@ -509,32 +714,78 @@ class TModeler(QWidget):
                     if y[j] < y[minimum]:
                         minimum = j
                 y[minimum], y[i] = y[i], y[minimum]
+                y_d[minimum], y_d[i] = y_d[i], y_d[minimum]
+                y_o[minimum], y_o[i] = y_o[i], y_o[minimum]
+                y_i[minimum], y_i[i] = y_i[i], y_i[minimum]
+                y_cl[minimum], y_cl[i] = y_cl[i], y_cl[minimum]
                 x[minimum], x[i] = x[i], x[minimum]
-                y1[minimum], y1[i] = y1[i], y1[minimum]
 
-            ax = plt.subplot(2, 1, 1)
-            ax.set_title('Полученные мандаты')
+            ax = plt.subplot(1, 1, 1)
+            # ax.set_title('Полученные мандаты')
+            # ax.set_ylabel('------------ Партии ------------')
+            # ax.set_xlabel('Количество полученных мандатов')
+            # ax.set_xlim(xmin=0, xmax=self.count_mandat.value())
+            # for i, v in enumerate(y):
+            #     if v != 0:
+            #         ax.text(v + 1, i - 0.2, str(v), color='blue')
+            # for i, v in enumerate(y_d):
+            #     if v != 0:
+            #         ax.text(v + 1, i - 0.2, str(v), color='green')
+            # ax.barh(x, y, height = 0.75, label='по Хэйру', color='blue')
+            # ax.barh(x, y_d, height = 0.75, label='по Друпу', color='green')
+            # ax.legend(loc='best', frameon=False)
+
+            data = {'по Хэйру': y, 'По Друпу': y_d, 'По Сент-Лагю': y_cl, "По Д'Ондту": y_o, "По Империали": y_i}
+            dx = pan.DataFrame(data, columns=['по Хэйру', 'По Друпу', 'По Сент-Лагю', "По Д'Ондту", "По Империали"],
+                               index=x)
+            dx.plot(kind='barh', title='Полученные мандаты', xlim=(0, self.count_mandat.value()),
+                    ax=ax)
             ax.set_ylabel('------------ Партии ------------')
             ax.set_xlabel('Количество полученных мандатов')
-            ax.set_xlim(xmin=0, xmax=self.count_mandat.value())
-            for i, v in enumerate(y):
-                if v != 0:
-                    ax.text(v + 1, i - 0.2, str(v), color='blue')
-            ax.barh(x, y, height = 0.75)
+            # for i, v in enumerate(y):
+            #     if v != 0:
+            #         ax.text(v + 1, i - 0.2, str(v), color='blue')
+            # for i, v in enumerate(y_d):
+            #     if v != 0:
+            #         ax.text(v + 1, i - 0.2, str(v), color='green')
+            # ax.barh(x, y, height = 0.75, label='по Хэйру', color='blue')
+            # ax.barh(x, y_d, height = 0.75, label='по Друпу', color='green')
             # ax.grid(True)
-            ax.legend(loc='best', frameon=False)
+            # ax.legend(loc='best', frameon=False)
 
-            ax = plt.subplot(2, 1, 2)
-            ax.set_title('Проценты избирателей')
-            ax.set_ylabel('------------ Партии ------------')
-            ax.set_xlabel('% избирателей')
-            ax.set_xlim(xmin=0, xmax=100)
-            for i, v in enumerate(y1):
-                if v != 0:
-                    ax.text(v + 1, i - 0.1, str(v), color='red')
-            ax.barh(x, y1, height = 0.75, color='r')
-            # ax.grid(True)
-            ax.legend(loc='best', frameon=False)
             plt.show()
+            # plt.tight_layout()
         except Exception as e:
             QMessageBox.information(None, 'Ошибки', f"{e}", buttons=QtWidgets.QMessageBox.Close)
+
+    def method_sent_lagu(self, k, d):
+        """
+        метод Сент-Лагю
+        :return:
+        """
+        values = commondata.texts[1]
+        summa = self.calc_summa_barier()  # сумма процентов партий, одолевших электоральный барьер
+        voters = []  # избиратели
+        mandats = []
+        for key in values.keys():
+            val = values[key]  # процент избирателей
+            if val is not None and val >= self.count_barier.value():
+                voters.append(val * self.count.value() / 100)
+            else:
+                voters.append(0)  # не прошедших барьер не считаем
+            mandats.append(0)
+
+        count_mandats = 0
+        while count_mandats < self.count_mandat.value():
+            dif = dict()
+            for i in range(len(voters)):
+                if voters[i] == 0:
+                    continue  # пропускаем
+                dif[str(i + 1)] = voters[i] / (k * mandats[i] + d)
+            # сортируем словарь
+            indexes = self.sort_indexes(dif)
+            mandats[indexes[0] - 1] = mandats[indexes[0] - 1] + 1
+            count_mandats += 1
+
+        return mandats
+

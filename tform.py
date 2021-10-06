@@ -37,6 +37,7 @@ class Form(QMainWindow):
 
     # закрыть программу
     def closeEvent(self, evt):
+        self.modeler.close_click()
         commondata.settings.setValue("CalcMandat", self.geometry())
         commondata.settings.setValue("CalcMandatFont", self.font())
         commondata.settings.sync()
