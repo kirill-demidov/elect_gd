@@ -233,10 +233,9 @@ def main():
                 votes_chart = results_df.set_index(txt['table_party'])[[txt['table_votes']]]
                 st.bar_chart(votes_chart)
 
-                # График распределения мандатов
-                st.subheader("Распределение мандатов" if is_ru else "Mandate distribution")
+                # График распределения мандатов (по X — системы)
                 mandate_cols = [col for col in results_df.columns if col not in [txt['table_party'], txt['table_votes']]]
-                mandates_chart = results_df.set_index(txt['table_party'])[mandate_cols]
+                mandates_chart = results_df.set_index(txt['table_party'])[mandate_cols].T
                 st.bar_chart(mandates_chart)
 
                 if st.button(txt['export']):
