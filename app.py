@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import json
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import os
 
 def get_default_data():
@@ -109,41 +107,6 @@ def calculate_mandates(votes, total_mandates, threshold=0):
         "Д'Ондта": mandates_dhondt,
         'Империали': mandates_imperiali
     }
-
-def plot_results(parties, votes, mandates_dict, lang='ru'):
-    if lang == 'en':
-        title = 'Mandate Allocation Results'
-        vote_title = 'Vote Distribution'
-        mandate_title = 'Mandate Distribution'
-    else:
-        title = 'Результаты выборов'
-        vote_title = 'Распределение голосов'
-        mandate_title = 'Распределение мандатов'
-    fig = make_subplots(rows=2, cols=1, 
-                       subplot_titles=(vote_title, mandate_title),
-                       vertical_spacing=0.2)
-    
-    # График голосов
-    fig.add_trace(
-        go.Bar(x=parties, y=votes, name='Голоса (%)' if lang=='ru' else 'Votes (%)'),
-        row=1, col=1
-    )
-    
-    # График мандатов
-    for method, mandates in mandates_dict.items():
-        fig.add_trace(
-            go.Bar(x=parties, y=mandates, name=method),
-            row=2, col=1
-        )
-    
-    fig.update_layout(
-        height=800,
-        showlegend=True,
-        barmode='group',
-        title_text=title
-    )
-    
-    return fig
 
 def main():
     st.set_page_config(page_title="Расчет мандатов", layout="wide")
@@ -265,8 +228,17 @@ def main():
                 total_row = {col: results_df[col].sum() if results_df[col].dtype != 'O' else 'Итого' if is_ru else 'Total' for col in results_df.columns}
                 total_df = pd.DataFrame([total_row])
                 st.dataframe(total_df, use_container_width=True)
-                fig = plot_results(parties, votes, mandates_dict, lang='ru' if is_ru else 'en')
-                st.plotly_chart(fig, use_container_width=True)
+                # График распределения голосов
+                st.subheader("Распределение голосов" if is_ru else "Vote distribution")
+                votes_chart = results_df.set_index(txt['table_party'])[[txt['table_votes']]]
+                st.bar_chart(votes_chart)
+
+                # График распределения мандатов
+                st.subheader("Распределение мандатов" if is_ru else "Mandate distribution")
+                mandate_cols = [col for col in results_df.columns if col not in [txt['table_party'], txt['table_votes']]]
+                mandates_chart = results_df.set_index(txt['table_party'])[mandate_cols]
+                st.bar_chart(mandates_chart)
+
                 if st.button(txt['export']):
                     results_df.to_excel("results.xlsx" if not is_ru else "результаты.xlsx", index=False)
                     st.success(("File saved as 'results.xlsx'" if not is_ru else "Файл сохранен как 'результаты.xlsx'"))
